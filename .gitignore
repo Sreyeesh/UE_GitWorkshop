@@ -1,0 +1,12 @@
+# Unreal Engine generated / transient
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# IDE / tooling
+.vscode/
+*.sln
+*.opensdf
+*.suo
+*.tmp
