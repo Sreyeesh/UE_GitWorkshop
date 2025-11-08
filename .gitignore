@@ -10,3 +10,10 @@ Saved/
 *.opensdf
 *.suo
 *.tmp
+
+
+# VS Code: ignore by default, allow specific JSON
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
