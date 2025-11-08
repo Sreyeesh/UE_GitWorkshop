@@ -4,16 +4,18 @@ DerivedDataCache/
 Intermediate/
 Saved/
 
-# IDE / tooling
-.vscode/
-*.sln
-*.opensdf
-*.suo
-*.tmp
-
-
-# VS Code: ignore by default, allow specific JSON
+# VS Code: ignore by default, allow specific JSON configs
 .vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+
+# Git hooks folder: ignore all by default, track only commit-msg
+.githooks/
+!.githooks/commit-msg
+
+# Misc
+*.sln
+*.opensdf
+*.suo
+*.tmp
