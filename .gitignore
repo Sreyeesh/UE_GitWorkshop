@@ -29,7 +29,8 @@ Saved/
 !.vscode/extensions.json
 
 # Git hooks folder: ignore all by default, track only commit-msg
-.githooks/
+.githooks/*
+!.githooks/
 !.githooks/commit-msg
 
 # Misc

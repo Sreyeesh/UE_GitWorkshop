@@ -2,9 +2,12 @@ CompileFlags:
   Add:
     - "-I${workspaceFolder}/Source"
     - "-I${workspaceFolder}/Source/UE_GitWorkshop/Public"
+    - "-I${workspaceFolder}/Source/UEGitWorkshop/Public"
     # Generated headers (UHT): ensure module include dir is searched
     - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UE_GitWorkshop"
     - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UE_GitWorkshop/UHT"
+    - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UEGitWorkshop"
+    - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UEGitWorkshop/UHT"
     # Engine sources and key runtime module public headers
     - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source"
     - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime"

@@ -35,7 +35,7 @@ Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCac
 │   └── settings.json
 ├── .github/
 │   └── workflows/
-│       └── game-build.yml
+│       └── unreal-sanity-check.yml
 ├── Config/
 │   ├── DefaultEngine.ini        ← Startup/Game map set to L_Main
 │   └── DefaultGame.ini          ← Project metadata
