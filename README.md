@@ -1,6 +1,6 @@
 # UEGitWorkshop (UE5.6)
 
-UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple CI pipeline to publish prebuilt game builds.
+UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple CI pipeline to package and release the Windows game build.
 
 This README explains the repo layout, prerequisites, how to run/build locally, and how CI is configured.
 
@@ -9,7 +9,7 @@ This README explains the repo layout, prerequisites, how to run/build locally, a
 - Consistent naming (e.g., maps use `L_` prefix: `L_Main`)
 - Cross-checked source/module/targets naming (`UEGitWorkshop`)
 - One‑shot build script to generate project files and build once
-- GitHub Actions workflow to publish a prebuilt Windows game zip
+- GitHub Actions workflow to package the Windows game via self‑hosted Windows runner and attach a zip to a release
 
 **Requirements**
 - Windows 10/11
@@ -96,20 +96,24 @@ If you just renamed maps in the filesystem, open the project and choose “Fix U
 ## CI/CD (GitHub Actions)
 
 Workflow file: `.github/workflows/game-build.yml`
-- Runs on GitHub-hosted `ubuntu-latest` (no Unreal install required)
-- Publishes an existing Windows game zip provided via secret or found in the repo
+- Trigger: manual only (`workflow_dispatch`).
+- Inputs: `config` (Development or Shipping, default Shipping) and optional `tag`.
+- Runner: self‑hosted Windows with Unreal Engine + Visual Studio installed.
 - Steps:
-  - Checkout (with LFS) and ensure real files
-  - Download Windows build zip from `secrets.WINDOWS_GAME_ZIP_URL` (optional SHA256 via `secrets.WINDOWS_GAME_ZIP_SHA256`), or fall back to the first zip under `Builds/Windows/`, `Releases/`, or `windows/`
-  - Upload the zip as artifact `Windows-Game`
-  - Optional: compute a tag and create a GitHub Release attaching the zip when running on `main`/`master` or `workflow_dispatch`
+  - Checkout (with LFS) and ensure real files.
+  - Validate `UE_ENGINE_ROOT` (engine path) from repo secret.
+  - Package with RunUAT `BuildCookRun` for Win64 using selected `config` and all maps.
+  - Zip packaged output to `WindowsGame.zip` and upload as artifact.
+  - Compute tag (provided or auto‑generated) and create a GitHub Release attaching the zip.
 
 Setup required:
-- Repository secret `WINDOWS_GAME_ZIP_URL` pointing to your private packaged Windows build zip (recommended)
-- Optional repository secret `WINDOWS_GAME_ZIP_SHA256` for checksum verification
+- Self‑hosted Windows runner with labels `[self-hosted, Windows, ue5]`.
+- Unreal Engine 5.6 installed + Visual Studio 2022 C++ workloads.
+- Repository secret `UE_ENGINE_ROOT` pointing to your engine path. Example:
+  - `C:\\Program Files\\Epic Games\\UE_5.6\\Engine`
 
-Manual dispatch with optional tag:
-- In GitHub → Actions → Game Build → Run workflow → optionally provide a tag (otherwise auto-generated)
+Manual dispatch:
+- GitHub → Actions → Package Windows Game → Run workflow → choose `config` and optional `tag`.
 
 ## Naming Conventions
 
