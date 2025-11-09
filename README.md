@@ -1,6 +1,6 @@
 # UEGitWorkshop (UE5.6)
 
-UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple CI pipeline to package and release the Windows game build.
+UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple GitHub Actions sanity-check workflow (no packaging or release).
 
 This README explains the repo layout, prerequisites, how to run/build locally, and how CI is configured.
 
