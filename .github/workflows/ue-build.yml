@@ -48,7 +48,13 @@ jobs:
           git lfs fetch --all
           git lfs checkout
 
+      - name: Skip note (no UE_DOCKER_IMAGE)
+        if: ${{ env.UE_DOCKER_IMAGE == '' }}
+        shell: bash
+        run: echo "UE_DOCKER_IMAGE not set; skipping Docker build steps."
+
       - name: Login to container registry (if needed)
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -70,12 +76,14 @@ jobs:
           fi
 
       - name: Pull UE Docker image
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         run: |
           set -euo pipefail
           docker pull "${UE_DOCKER_IMAGE}"
 
       - name: Build (Editor target) inside Docker
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           PROJECT: ${{ env.PROJECT }}
@@ -106,7 +114,7 @@ jobs:
             '
 
       - name: Create archives
-        if: success()
+        if: ${{ success() && env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -114,7 +122,7 @@ jobs:
           if [[ -d "Saved/Logs" ]]; then zip -r "Logs.zip" "Saved/Logs"; fi
 
       - name: Upload build outputs
-        if: always()
+        if: ${{ always() && env.UE_DOCKER_IMAGE != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: Binaries-Linux
@@ -126,7 +134,7 @@ jobs:
 
       - name: Compute tag
         id: version
-        if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
@@ -137,7 +145,7 @@ jobs:
           echo "Tag computed: ${tag}"
 
       - name: Push git tag
-        if: ${{ steps.version.outputs.tag != '' }}
+        if: ${{ steps.version.outputs.tag != '' && env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -150,7 +158,7 @@ jobs:
           git push origin "${TAG}" --force-with-lease || git push origin "${TAG}"
 
       - name: Create GitHub Release
-        if: ${{ steps.version.outputs.tag != '' }}
+        if: ${{ steps.version.outputs.tag != '' && env.UE_DOCKER_IMAGE != '' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -185,7 +193,13 @@ jobs:
           git lfs fetch --all
           git lfs checkout
 
+      - name: Skip note (no UE_DOCKER_IMAGE)
+        if: ${{ env.UE_DOCKER_IMAGE == '' }}
+        shell: bash
+        run: echo "UE_DOCKER_IMAGE not set; skipping Docker build steps."
+
       - name: Login to container registry (if needed)
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -207,12 +221,14 @@ jobs:
           fi
 
       - name: Pull UE Docker image
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         run: |
           set -euo pipefail
           docker pull "${UE_DOCKER_IMAGE}"
 
       - name: Build (Game target) inside Docker
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         shell: bash
         env:
           PROJECT: ${{ env.PROJECT }}
@@ -240,6 +256,7 @@ jobs:
             '
 
       - name: Upload Game Binaries
+        if: ${{ env.UE_DOCKER_IMAGE != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: Game-Binaries-Linux
