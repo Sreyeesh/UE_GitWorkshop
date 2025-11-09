@@ -1,6 +1,6 @@
 # UEGitWorkshop (UE5.6)
 
-UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple CI pipeline for automated builds.
+UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean Git practices for UE teams: correct ignore rules, Git LFS for binary assets, consistent naming conventions, and a simple CI pipeline to publish prebuilt game builds.
 
 This README explains the repo layout, prerequisites, how to run/build locally, and how CI is configured.
 
@@ -9,7 +9,7 @@ This README explains the repo layout, prerequisites, how to run/build locally, a
 - Consistent naming (e.g., maps use `L_` prefix: `L_Main`)
 - Cross-checked source/module/targets naming (`UEGitWorkshop`)
 - One‑shot build script to generate project files and build once
-- GitHub Actions workflow for Windows self‑hosted runners
+- GitHub Actions workflow to publish a prebuilt Windows game zip
 
 **Requirements**
 - Windows 10/11
@@ -26,35 +26,40 @@ This README explains the repo layout, prerequisites, how to run/build locally, a
 Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCache/`, `Saved/`, and `Binaries/` are ignored by Git):
 
 ```
-UEGitWorkshop.uproject
-build_ue.py
-.github/
-  workflows/
-    ue-build.yml
-Config/
-  DefaultEngine.ini        ← Startup/Game map set to L_Main
-  DefaultGame.ini          ← Project metadata
-Content/
-  Maps/
-    L_Main.umap            ← Main level (rename done in Editor)
-  Materials/
-  SimBlank/
-    Blueprints/
-    Levels/
-Source/
-  UEGitWorkshop/
-    Public/
-      GitWorkshopHello.h
-      HelloWorldSubsystem.h
-      UEGitWorkshopLog.h
-    Private/
-      GitWorkshopHello.cpp
-      HelloWorldSubsystem.cpp
-      UEGitWorkshopLog.cpp
-    UEGitWorkshop.Build.cs
-    UEGitWorkshop.cpp
-  UEGitWorkshop.Target.cs
-  UEGitWorkshopEditor.Target.cs
+.
+├── .clangd
+├── .editorconfig
+├── .vscode/
+│   └── settings.json
+├── .github/
+│   └── workflows/
+│       └── game-build.yml
+├── Config/
+│   ├── DefaultEngine.ini        ← Startup/Game map set to L_Main
+│   └── DefaultGame.ini          ← Project metadata
+├── Content/
+│   ├── Maps/
+│   │   └── L_Main.umap          ← Main level (rename done in Editor)
+│   ├── Materials/
+│   └── SimBlank/
+│       ├── Blueprints/
+│       └── Levels/
+├── Source/
+│   ├── UEGitWorkshop/
+│   │   ├── Public/
+│   │   │   ├── GitWorkshopHello.h
+│   │   │   ├── HelloWorldSubsystem.h
+│   │   │   └── UEGitWorkshopLog.h
+│   │   ├── Private/
+│   │   │   ├── GitWorkshopHello.cpp
+│   │   │   ├── HelloWorldSubsystem.cpp
+│   │   │   └── UEGitWorkshopLog.cpp
+│   │   ├── UEGitWorkshop.Build.cs
+│   │   └── UEGitWorkshop.cpp
+│   ├── UEGitWorkshop.Target.cs
+│   └── UEGitWorkshopEditor.Target.cs
+├── UEGitWorkshop.uproject
+└── build_ue.py
 ```
 
 ## Local Setup
@@ -90,20 +95,21 @@ If you just renamed maps in the filesystem, open the project and choose “Fix U
 
 ## CI/CD (GitHub Actions)
 
-Workflow file: `.github/workflows/ue-build.yml`
-- Runs on a Windows self‑hosted runner with labels: `self-hosted`, `windows`, `ue5`
+Workflow file: `.github/workflows/game-build.yml`
+- Runs on GitHub-hosted `ubuntu-latest` (no Unreal install required)
+- Publishes an existing Windows game zip provided via secret or found in the repo
 - Steps:
-  - Checkout, set up Python
-  - Build Editor target via `build_ue.py`
-  - Archive and upload artifacts (binaries + logs)
-  - Optional tag + GitHub Release on main/master or manual `workflow_dispatch`
+  - Checkout (with LFS) and ensure real files
+  - Download Windows build zip from `secrets.WINDOWS_GAME_ZIP_URL` (optional SHA256 via `secrets.WINDOWS_GAME_ZIP_SHA256`), or fall back to the first zip under `Builds/Windows/`, `Releases/`, or `windows/`
+  - Upload the zip as artifact `Windows-Game`
+  - Optional: compute a tag and create a GitHub Release attaching the zip when running on `main`/`master` or `workflow_dispatch`
 
-Runner prerequisites:
-- Install UE 5.6 + required VS components
-- Set repo secret `UE_ENGINE_ROOT` or configure machine env var
+Setup required:
+- Repository secret `WINDOWS_GAME_ZIP_URL` pointing to your private packaged Windows build zip (recommended)
+- Optional repository secret `WINDOWS_GAME_ZIP_SHA256` for checksum verification
 
 Manual dispatch with optional tag:
-- In GitHub → Actions → UE Build → Run workflow → provide a tag (or it will generate one)
+- In GitHub → Actions → Game Build → Run workflow → optionally provide a tag (otherwise auto-generated)
 
 ## Naming Conventions
 
