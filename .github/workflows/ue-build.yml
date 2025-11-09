@@ -19,19 +19,34 @@ env:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-win64:
+    # Do not run on forked PRs for self-hosted security
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     # Requires a self-hosted Windows runner with Unreal Engine + VS installed
-    runs-on: [self-hosted, windows, ue5]
+    runs-on: [self-hosted, Windows]
     timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Validate UE engine path
+        shell: pwsh
+        run: |
+          if (-not $env:UE_ENGINE_ROOT) { Write-Error 'UE_ENGINE_ROOT secret/env var not set'; exit 1 }
+          if (-not (Test-Path $env:UE_ENGINE_ROOT)) { Write-Error "UE_ENGINE_ROOT path not found: $env:UE_ENGINE_ROOT"; exit 1 }
+          Write-Host "Engine path: $env:UE_ENGINE_ROOT"
 
       - name: Build (Editor target)
         shell: cmd
@@ -97,13 +112,24 @@ jobs:
             Logs.zip
 
   build-game:
-    runs-on: [self-hosted, windows, ue5]
+    # Do not run on forked PRs for self-hosted security
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: [self-hosted, Windows]
     needs: build-win64
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Validate UE engine path
+        shell: pwsh
+        run: |
+          if (-not $env:UE_ENGINE_ROOT) { Write-Error 'UE_ENGINE_ROOT secret/env var not set'; exit 1 }
+          if (-not (Test-Path $env:UE_ENGINE_ROOT)) { Write-Error "UE_ENGINE_ROOT path not found: $env:UE_ENGINE_ROOT"; exit 1 }
+          Write-Host "Engine path: $env:UE_ENGINE_ROOT"
       - name: Build (Game target)
         shell: cmd
         run: |
