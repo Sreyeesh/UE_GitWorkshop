@@ -80,6 +80,21 @@ Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCac
 
 1. Ensure Visual Studio 2022 with C++ components is installed.
 
+## Getting Started
+
+Run these once in your clone to align tooling and branches.
+
+- Initialize LFS and enable the repo hooks
+  - `git lfs install`
+  - `git config core.hooksPath .githooks`
+- Set the Engine path for this session (adjust if you installed UE elsewhere)
+  - Windows CMD: `set "UE_ENGINE_ROOT=C:\\Program Files\\Epic Games\\UE_5.6"`
+- Pull latest and create your personal feature branch
+  - `git switch main && git pull --rebase`
+  - `git switch -c feat/<yourname>-lab1`
+  - `git push -u origin feat/<yourname>-lab1`
+- Commit messages follow Conventional Commits. Allowed types: `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`.
+
 ## Build & Run
 
 Generate project files and build once via the helper script:
@@ -92,12 +107,33 @@ Open the project:
 - Double‑click `UEGitWorkshop.uproject`, or
 - Open the generated solution in Visual Studio and start the Editor target.
 
+Windows Command Prompt equivalents:
+
+- Build once using your env var: `py -3.11 build_ue.py --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64`
+- Launch the Editor: `"%UE_ENGINE_ROOT%\Engine\Binaries\Win64\UnrealEditor.exe" "%CD%\UEGitWorkshop.uproject" -log`
+
 Default maps (configured in `Config/DefaultEngine.ini`):
 
 - `EditorStartupMap=/Game/Maps/L_Main.L_Main`
 - `GameDefaultMap=/Game/Maps/L_Main.L_Main`
 
 If you just renamed maps in the filesystem, open the project and choose “Fix Up Redirectors” in the Content Browser to preserve references.
+
+## Personal Branch Workflow
+
+1) Make a small code change (example: tweak the on‑screen Hello message)
+- Edit `Source/UEGitWorkshop/Private/HelloWorldSubsystem.cpp` and change the displayed string or `FColor`.
+- Stage and commit:
+  - `git add Source/UEGitWorkshop/Private/HelloWorldSubsystem.cpp`
+  - `git commit -m "feat(log): personalize hello text"`
+
+2) Push and open a Pull Request
+- `git push`
+- Open a PR from `feat/<yourname>-lab1` to `main` in GitHub.
+
+3) Verify the CI sanity check
+- Wait for the “Unreal Sanity Check” workflow to run on your PR.
+- Download the `sanity-report` artifact and open `sanity.txt` to see branch/SHA, a file listing, and whitespace status.
 
 ## CI/CD (GitHub Actions)
 
@@ -129,6 +165,9 @@ Run it:
 - UBT/Generator errors: ensure Visual Studio 2022 with C++ workloads is installed.
 - Missing binaries after build: check `Saved/Logs/` artifacts and runner environment.
 - Asset renames: always rename inside the Unreal Editor and then “Fix Up Redirectors”.
+- LFS pointer files present after clone: `git lfs fetch --all` then `git lfs checkout` to materialize binaries.
+- Commit rejected by hook: use the Conventional Commit types above, or enable hooks with `git config core.hooksPath .githooks`.
+- Whitespace/EOL errors locally: ensure LF as per `.editorconfig`, run `git diff --check`, re‑save and commit.
 
 ## License
 
