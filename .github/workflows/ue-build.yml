@@ -24,11 +24,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-win64:
+  build-linux:
     # Do not run on forked PRs for self-hosted security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-    # Requires a self-hosted Windows runner with Unreal Engine + VS installed
-    runs-on: [self-hosted, Windows, ue5]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ secrets.UE_DOCKER_IMAGE }}
+      options: --user 0
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -41,62 +43,70 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Validate UE engine path
-        shell: pwsh
+      - name: Validate UE engine path (in container)
+        shell: bash
         run: |
-          if (-not $env:UE_ENGINE_ROOT) { Write-Error 'UE_ENGINE_ROOT secret/env var not set'; exit 1 }
-          if (-not (Test-Path $env:UE_ENGINE_ROOT)) { Write-Error "UE_ENGINE_ROOT path not found: $env:UE_ENGINE_ROOT"; exit 1 }
-          Write-Host "Engine path: $env:UE_ENGINE_ROOT"
+          ENGINE_PATH="${UE_ENGINE_ROOT}"
+          if [[ -z "${ENGINE_PATH}" ]]; then
+            for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
+              if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
+            done
+          fi
+          if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+            echo "Unable to locate Unreal Engine in container. Set secret UE_ENGINE_ROOT or bake engine into image at one of: /opt/UnrealEngine, /opt/unreal-engine, /home/ue4/UnrealEngine, /home/ue/UnrealEngine" >&2
+            exit 1
+          fi
+          echo "Engine path: ${ENGINE_PATH}"
+          echo "UE_ENGINE_ROOT=${ENGINE_PATH}" >> "$GITHUB_ENV"
 
       - name: Build (Editor target)
-        shell: cmd
+        shell: bash
         run: |
-          echo Python version:
+          echo "Python version:"
           python -V
-          echo Building with engine at %UE_ENGINE_ROOT%
-          python build_ue.py --project "%PROJECT%" --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64
+          echo "Building with engine at ${UE_ENGINE_ROOT}"
+          python build_ue.py --project "${PROJECT}" --engine "${UE_ENGINE_ROOT}" --config Development --platform Linux
 
       - name: Create archives
         if: success()
-        shell: pwsh
+        shell: bash
         run: |
-          if (Test-Path 'Binaries/Win64') { Compress-Archive -Path 'Binaries/Win64/*' -DestinationPath 'Binaries-Win64.zip' -Force }
-          if (Test-Path 'Saved/Logs')    { Compress-Archive -Path 'Saved/Logs/*'    -DestinationPath 'Logs.zip'            -Force }
+          if [[ -d "Binaries/Linux" ]]; then zip -r "Binaries-Linux.zip" "Binaries/Linux" || true; fi
+          if [[ -d "Saved/Logs" ]]; then zip -r "Logs.zip" "Saved/Logs" || true; fi
 
       - name: Upload build outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Binaries-Win64
+          name: Binaries-Linux
           path: |
-            Binaries/Win64/**
+            Binaries/Linux/**
             Saved/Logs/**
-            Binaries-Win64.zip
+            Binaries-Linux.zip
             Logs.zip
 
       - name: Compute tag
         id: version
         if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-        shell: pwsh
+        shell: bash
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if ($env:INPUT_TAG) { $tag = $env:INPUT_TAG }
-          else { $date = Get-Date -Format 'yyyyMMdd'; $tag = "build-$date-${{ github.run_number }}" }
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          Write-Host "Tag computed: $tag"
+          if [[ -n "${INPUT_TAG}" ]]; then tag="${INPUT_TAG}"; else tag="build-$(date +'%Y%m%d')-${{ github.run_number }}"; fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Tag computed: ${tag}"
 
       - name: Push git tag
         if: ${{ steps.version.outputs.tag != '' }}
-        shell: pwsh
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
-          git tag $env:TAG -a -m "Automated build $env:TAG"
-          git push origin $env:TAG
-        env:
-          TAG: ${{ steps.version.outputs.tag }}
+          git tag "${TAG}" -a -m "Automated build ${TAG}" || git tag "${TAG}" -fa -m "Automated build ${TAG}"
+          git push origin "${TAG}" --force-with-lease || git push origin "${TAG}"
 
       - name: Create GitHub Release
         if: ${{ steps.version.outputs.tag != '' }}
@@ -108,14 +118,17 @@ jobs:
             Automated build from commit ${{ github.sha }} on ${{ github.ref }}.
             Trigger: ${{ github.event_name }} | Runner: ${{ runner.os }}
           files: |
-            Binaries-Win64.zip
+            Binaries-Linux.zip
             Logs.zip
 
   build-game:
     # Do not run on forked PRs for self-hosted security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-    runs-on: [self-hosted, Windows, ue5]
-    needs: build-win64
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ secrets.UE_DOCKER_IMAGE }}
+      options: --user 0
+    needs: build-linux
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -124,20 +137,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Validate UE engine path
-        shell: pwsh
+      - name: Validate UE engine path (in container)
+        shell: bash
         run: |
-          if (-not $env:UE_ENGINE_ROOT) { Write-Error 'UE_ENGINE_ROOT secret/env var not set'; exit 1 }
-          if (-not (Test-Path $env:UE_ENGINE_ROOT)) { Write-Error "UE_ENGINE_ROOT path not found: $env:UE_ENGINE_ROOT"; exit 1 }
-          Write-Host "Engine path: $env:UE_ENGINE_ROOT"
+          ENGINE_PATH="${UE_ENGINE_ROOT}"
+          if [[ -z "${ENGINE_PATH}" ]]; then
+            for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
+              if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
+            done
+          fi
+          if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+            echo "Unable to locate Unreal Engine in container. Set secret UE_ENGINE_ROOT or bake engine into image at one of: /opt/UnrealEngine, /opt/unreal-engine, /home/ue4/UnrealEngine, /home/ue/UnrealEngine" >&2
+            exit 1
+          fi
+          echo "Engine path: ${ENGINE_PATH}"
+          echo "UE_ENGINE_ROOT=${ENGINE_PATH}" >> "$GITHUB_ENV"
       - name: Build (Game target)
-        shell: cmd
+        shell: bash
         run: |
-          python build_ue.py --project "%PROJECT%" --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64 --game
+          python build_ue.py --project "${PROJECT}" --engine "${UE_ENGINE_ROOT}" --config Development --platform Linux --game
       - name: Upload Game Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: Game-Binaries-Win64
+          name: Game-Binaries-Linux
           path: |
-            Binaries/Win64/**
+            Binaries/Linux/**
             Saved/Logs/**
