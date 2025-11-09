@@ -1,0 +1,70 @@
+name: Unreal Sanity Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: UEGitWorkshop.uproject
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Ensure LFS files are real (not pointers)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git lfs version || true
+          git lfs install --local || true
+          git lfs fetch --all || true
+          git lfs checkout || true
+
+      - name: Basic repo sanity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Branch: $GITHUB_REF" | tee sanity.txt
+          echo "Commit: $GITHUB_SHA" | tee -a sanity.txt
+          echo "Runner: $RUNNER_OS" | tee -a sanity.txt
+          if [ -f "$PROJECT" ]; then
+            echo "Found uproject: $PROJECT" | tee -a sanity.txt
+          else
+            echo "ERROR: Missing .uproject file: $PROJECT" | tee -a sanity.txt
+            exit 1
+          fi
+          echo "Top 50 tracked files:" | tee -a sanity.txt
+          git ls-files | head -n 50 | tee -a sanity.txt
+
+      - name: Whitespace/EOL check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --check > ws.txt 2>&1; then
+            echo "No whitespace errors" | tee -a sanity.txt
+          else
+            echo "Whitespace issues detected (see ws.txt)" | tee -a sanity.txt
+          fi
+
+      - name: Upload sanity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-report
+          path: |
+            sanity.txt
+            ws.txt
+            README.md
+            Logs.zip
