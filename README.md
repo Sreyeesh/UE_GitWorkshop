@@ -159,6 +159,10 @@ Run it:
 - Module/Targets/Project: `UEGitWorkshop` (PascalCase, no underscores)
 - Logging: dedicated category `LogUEGitWorkshop` instead of `LogTemp`
 
+Notes:
+- Rename/move assets inside the Unreal Editor only, then run “Fix Up Redirectors” on the parent folders to preserve references.
+- CI appends a naming report (`naming.txt`) in the `sanity-report` artifact; it heuristically validates prefixes by folder (maps/blueprints/materials/textures) and is non‑blocking for workshops.
+
 ## Troubleshooting
 
 - “Could not locate Unreal Engine root”: set `--engine` or `UE_ENGINE_ROOT`.
