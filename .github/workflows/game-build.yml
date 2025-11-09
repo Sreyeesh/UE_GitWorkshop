@@ -1,13 +1,14 @@
-name: Game Build
+name: Package Windows Game
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
   workflow_dispatch:
     inputs:
+      config:
+        description: Build config (Development or Shipping)
+        default: Shipping
+        required: true
       tag:
-        description: Optional tag name to create and release
+        description: Optional tag (e.g. v0.1.0)
         required: false
 
 # If your Windows self-hosted runner sets UE_ENGINE_ROOT as a machine env var,
@@ -18,101 +19,94 @@ env:
 
 permissions:
   contents: write
-  packages: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+ 
 
 jobs:
-  publish-windows-zip:
-    # Do not run on forked PRs for security (secrets not exposed)
+  package-windows:
+    # Don’t run on forked PRs for safety
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      WINDOWS_GAME_ZIP_URL: ${{ secrets.WINDOWS_GAME_ZIP_URL }}
-      WINDOWS_GAME_ZIP_SHA256: ${{ secrets.WINDOWS_GAME_ZIP_SHA256 }}
+    runs-on: [self-hosted, Windows, ue5]
+    timeout-minutes: 120
     steps:
       - name: Checkout (with LFS)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
-      
+
       - name: Ensure LFS files are real (not pointers)
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
           git lfs fetch --all
           git lfs checkout
 
-      - name: Prepare Windows build zip
-        id: prepare
-        shell: bash
+      - name: Validate UE engine path
+        shell: pwsh
         run: |
-          set -euo pipefail
-          ZIP_PATH=""
-          if [[ -n "${WINDOWS_GAME_ZIP_URL:-}" ]]; then
-            echo "Downloading Windows build from URL..."
-            curl -fsSLo Windows-Game.zip "${WINDOWS_GAME_ZIP_URL}"
-            if [[ -n "${WINDOWS_GAME_ZIP_SHA256:-}" ]]; then
-              echo "${WINDOWS_GAME_ZIP_SHA256}  Windows-Game.zip" | sha256sum -c -
-            fi
-            ZIP_PATH="$PWD/Windows-Game.zip"
-          else
-            echo "No WINDOWS_GAME_ZIP_URL secret set. Searching repository for a zip..."
-            CANDIDATE="$(ls -1 Builds/Windows/*.zip Releases/*.zip windows/*.zip 2>/dev/null | head -n1 || true)"
-            if [[ -n "${CANDIDATE}" ]]; then
-              ZIP_PATH="$PWD/${CANDIDATE}"
-              echo "Found zip: ${ZIP_PATH}"
-            else
-              echo "No Windows build zip provided or found; skipping artifact/upload steps."
-            fi
-          fi
-          echo "ZIP_PATH=${ZIP_PATH}" >> "$GITHUB_OUTPUT"
-          echo "ZIP_PATH=${ZIP_PATH}" >> "$GITHUB_ENV"
+          if (-not $env:UE_ENGINE_ROOT) { Write-Error 'UE_ENGINE_ROOT secret/env var not set'; exit 1 }
+          if (-not (Test-Path $env:UE_ENGINE_ROOT)) { Write-Error "UE_ENGINE_ROOT path not found: $env:UE_ENGINE_ROOT"; exit 1 }
+          Write-Host "Engine path: $env:UE_ENGINE_ROOT"
 
-      - name: Upload Windows Build artifact
-        if: ${{ steps.prepare.outputs.ZIP_PATH != '' }}
+      # For Blueprint-only projects you can add -nocompile to skip compiling altogether.
+      - name: Package game
+        shell: pwsh
+        run: |
+          $Engine = "$env:UE_ENGINE_ROOT"
+          $Project = "$env:PROJECT"
+          $OutDir = "PackagedBuild"
+          if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
+
+          & "$Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun `
+            -project="$Project" `
+            -noP4 -platform=Win64 -clientconfig="${{ github.event.inputs.config }}" `
+            -cook -allmaps -build -stage -pak -archive `
+            -archivedirectory="$PWD\$OutDir"
+
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Zip packaged build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "PackagedBuild\*" -DestinationPath "WindowsGame.zip" -Force
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Windows-Game
-          path: ${{ steps.prepare.outputs.ZIP_PATH }}
+          name: WindowsGame
+          path: |
+            WindowsGame.zip
 
       - name: Compute tag
-        id: version
-        if: ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.prepare.outputs.ZIP_PATH != '' }}
-        shell: bash
+        id: tag
+        shell: pwsh
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          set -euo pipefail
-          if [[ -n "${INPUT_TAG:-}" ]]; then tag="${INPUT_TAG}"; else tag="release-$(date +'%Y%m%d')-${{ github.run_number }}"; fi
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "Tag computed: ${tag}"
+          if ($env:INPUT_TAG) { $tag = $env:INPUT_TAG }
+          else { $tag = "game-" + (Get-Date -Format 'yyyyMMdd') + "-${{ github.run_number }}" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Tag: $tag"
 
       - name: Push git tag
-        if: ${{ steps.version.outputs.tag != '' }}
-        shell: bash
+        if: ${{ steps.tag.outputs.tag != '' }}
+        shell: pwsh
         env:
-          TAG: ${{ steps.version.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
-          git tag "${TAG}" -a -m "Automated release ${TAG}" || git tag "${TAG}" -fa -m "Automated release ${TAG}"
-          git push origin "${TAG}" --force-with-lease || git push origin "${TAG}"
+          git tag $env:TAG -a -m "Packaged game $env:TAG" || git tag $env:TAG -fa -m "Packaged game $env:TAG"
+          git push origin $env:TAG --force-with-lease || git push origin $env:TAG
 
       - name: Create GitHub Release
-        if: ${{ steps.version.outputs.tag != '' && steps.prepare.outputs.ZIP_PATH != '' }}
+        if: ${{ steps.tag.outputs.tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Windows build ${{ steps.version.outputs.tag }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Windows game ${{ steps.tag.outputs.tag }}
           body: |
-            Packaged Windows build from commit ${{ github.sha }} on ${{ github.ref }}.
-            Trigger: ${{ github.event_name }} | Runner: ${{ runner.os }}
+            Packaged Windows game build from commit ${{ github.sha }}.
           files: |
-            ${{ steps.prepare.outputs.ZIP_PATH }}
+            WindowsGame.zip
