@@ -5,8 +5,21 @@ on:
     inputs:
       config:
         description: Build config (Development or Shipping)
-        default: Shipping
+        default: Development
         required: true
+      maps:
+        description: Comma-separated map names (leave blank for all maps)
+        required: false
+      prereqs:
+        description: Include VC++ prerequisites installer (-prereqs)
+        type: boolean
+        default: false
+        required: false
+      nocompile:
+        description: Skip compiling (Blueprint-only projects)
+        type: boolean
+        default: false
+        required: false
       tag:
         description: Optional tag (e.g. v0.1.0)
         required: false
@@ -57,11 +70,34 @@ jobs:
           $OutDir = "PackagedBuild"
           if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
 
-          & "$Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun `
-            -project="$Project" `
-            -noP4 -platform=Win64 -clientconfig="${{ github.event.inputs.config }}" `
-            -cook -allmaps -build -stage -pak -archive `
-            -archivedirectory="$PWD\$OutDir"
+          # Build dynamic UAT args based on inputs
+          $mapArgs = @()
+          $mapsInput = "${{ github.event.inputs.maps }}".Trim()
+          if ($mapsInput) {
+            $maps = $mapsInput -split ",[\s]*"
+            foreach ($m in $maps) { if ($m) { $mapArgs += "-map=`"$m`"" } }
+          } else {
+            $mapArgs += '-allmaps'
+          }
+
+          $prereqsArg   = if ('${{ github.event.inputs.prereqs }}' -eq 'true') { '-prereqs' } else { '' }
+          $nocompileArg = if ('${{ github.event.inputs.nocompile }}' -eq 'true') { '-nocompile' } else { '' }
+
+          $args = @(
+            'BuildCookRun',
+            "-project=`"$Project`"",
+            '-noP4',
+            '-platform=Win64',
+            "-clientconfig=${{ github.event.inputs.config }}",
+            '-cook'
+          ) + $mapArgs + @(
+            '-build','-stage','-pak','-archive',
+            $prereqsArg, $nocompileArg,
+            "-archivedirectory=`"$PWD\$OutDir`""
+          ) | Where-Object { $_ -and $_.Trim() -ne '' }
+
+          Write-Host "Running RunUAT with args: $args"
+          & "$Engine\Build\BatchFiles\RunUAT.bat" @args
 
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -70,12 +106,23 @@ jobs:
         run: |
           Compress-Archive -Path "PackagedBuild\*" -DestinationPath "WindowsGame.zip" -Force
 
+      - name: Zip logs
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path 'Saved\Logs') {
+            Compress-Archive -Path 'Saved\Logs\*' -DestinationPath 'Logs.zip' -Force
+          } else {
+            Write-Host 'No Saved\\Logs directory found to zip.'
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: WindowsGame
           path: |
             WindowsGame.zip
+            Logs.zip
 
       - name: Compute tag
         id: tag
@@ -110,3 +157,4 @@ jobs:
             Packaged Windows game build from commit ${{ github.sha }}.
           files: |
             WindowsGame.zip
+            Logs.zip
