@@ -10,14 +10,15 @@ on:
         description: Optional tag name to create and release
         required: false
 
-# If your runner sets UE_ENGINE_ROOT as a machine env var,
-# you can remove the env block or leave it to override via secret.
+# If your Windows self-hosted runner sets UE_ENGINE_ROOT as a machine env var,
+# you can keep this to override via secret there. Linux jobs override it to "".
 env:
   UE_ENGINE_ROOT: ${{ secrets.UE_ENGINE_ROOT }}
   PROJECT: UEGitWorkshop.uproject
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,54 +26,92 @@ concurrency:
 
 jobs:
   build-linux:
-    # Do not run on forked PRs for self-hosted security
+    # Do not run on forked PRs for security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
-    container:
-      image: ${{ secrets.UE_DOCKER_IMAGE }}
-      options: --user 0
     timeout-minutes: 120
+    env:
+      UE_DOCKER_IMAGE: ${{ secrets.UE_DOCKER_IMAGE }}
+      # Force container-side auto-discovery; don't pass a Windows path into Linux
+      UE_ENGINE_ROOT: ""
     steps:
-      - name: Checkout
+      - name: Checkout (with LFS)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Validate UE engine path (in container)
+      - name: Ensure LFS files are real (not pointers)
         shell: bash
         run: |
-          ENGINE_PATH="${UE_ENGINE_ROOT}"
-          if [[ -z "${ENGINE_PATH}" ]]; then
-            for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
-              if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
-            done
-          fi
-          if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
-            echo "Unable to locate Unreal Engine in container. Set secret UE_ENGINE_ROOT or bake engine into image at one of: /opt/UnrealEngine, /opt/unreal-engine, /home/ue4/UnrealEngine, /home/ue/UnrealEngine" >&2
-            exit 1
-          fi
-          echo "Engine path: ${ENGINE_PATH}"
-          echo "UE_ENGINE_ROOT=${ENGINE_PATH}" >> "$GITHUB_ENV"
+          set -euo pipefail
+          git lfs fetch --all
+          git lfs checkout
 
-      - name: Build (Editor target)
+      - name: Login to container registry (if needed)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${UE_DOCKER_IMAGE:-}" ]]; then
+            echo "UE_DOCKER_IMAGE secret not set" >&2; exit 1
+          fi
+          if [[ "${UE_DOCKER_IMAGE}" == ghcr.io/* ]]; then
+            echo "Logging in to GHCR..."
+            echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          elif [[ -n "${DOCKER_USERNAME:-}" && -n "${DOCKER_PASSWORD:-}" ]]; then
+            echo "Logging in to Docker registry with DOCKER_USERNAME..."
+            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+          else
+            echo "No registry login performed (public image or anonymous pull)."
+          fi
+
+      - name: Pull UE Docker image
         shell: bash
         run: |
-          echo "Python version:"
-          python -V
-          echo "Building with engine at ${UE_ENGINE_ROOT}"
-          python build_ue.py --project "${PROJECT}" --engine "${UE_ENGINE_ROOT}" --config Development --platform Linux
+          set -euo pipefail
+          docker pull "${UE_DOCKER_IMAGE}"
+
+      - name: Build (Editor target) inside Docker
+        shell: bash
+        env:
+          PROJECT: ${{ env.PROJECT }}
+          UE_ENGINE_ROOT: ${{ env.UE_ENGINE_ROOT }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/workspace" -w /workspace \
+            -e PROJECT -e UE_ENGINE_ROOT \
+            "${UE_DOCKER_IMAGE}" bash -lc '
+              set -euo pipefail
+              ENGINE_PATH="${UE_ENGINE_ROOT:-}"
+              # Fall back if empty or invalid
+              if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+                for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
+                  if [[ -d "$candidate/Engine" ]]; then ENGINE_PATH="$candidate/Engine"; break; fi
+                  if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
+                done
+              fi
+              if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+                echo "Unable to locate Unreal Engine in container. Set UE_ENGINE_ROOT or bake engine at one of:
+                  /opt/UnrealEngine, /opt/unreal-engine, /home/ue4/UnrealEngine, /home/ue/UnrealEngine" >&2
+                exit 1
+              fi
+              echo "Engine path: ${ENGINE_PATH}"
+              echo "Python version:"; python -V
+              python build_ue.py --project "${PROJECT}" --engine "${ENGINE_PATH}" --config Development --platform Linux
+            '
 
       - name: Create archives
         if: success()
         shell: bash
         run: |
-          if [[ -d "Binaries/Linux" ]]; then zip -r "Binaries-Linux.zip" "Binaries/Linux" || true; fi
-          if [[ -d "Saved/Logs" ]]; then zip -r "Logs.zip" "Saved/Logs" || true; fi
+          set -euo pipefail
+          if [[ -d "Binaries/Linux" ]]; then zip -r "Binaries-Linux.zip" "Binaries/Linux"; fi
+          if [[ -d "Saved/Logs" ]]; then zip -r "Logs.zip" "Saved/Logs"; fi
 
       - name: Upload build outputs
         if: always()
@@ -92,7 +131,8 @@ jobs:
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [[ -n "${INPUT_TAG}" ]]; then tag="${INPUT_TAG}"; else tag="build-$(date +'%Y%m%d')-${{ github.run_number }}"; fi
+          set -euo pipefail
+          if [[ -n "${INPUT_TAG:-}" ]]; then tag="${INPUT_TAG}"; else tag="build-$(date +'%Y%m%d')-${{ github.run_number }}"; fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "Tag computed: ${tag}"
 
@@ -102,6 +142,7 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
+          set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
@@ -122,40 +163,82 @@ jobs:
             Logs.zip
 
   build-game:
-    # Do not run on forked PRs for self-hosted security
+    # Do not run on forked PRs for security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
-    container:
-      image: ${{ secrets.UE_DOCKER_IMAGE }}
-      options: --user 0
     needs: build-linux
     timeout-minutes: 120
+    env:
+      UE_DOCKER_IMAGE: ${{ secrets.UE_DOCKER_IMAGE }}
+      UE_ENGINE_ROOT: ""   # ensure Linux path discovery in container
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Validate UE engine path (in container)
+          lfs: true
+
+      - name: Ensure LFS files are real (not pointers)
         shell: bash
         run: |
-          ENGINE_PATH="${UE_ENGINE_ROOT}"
-          if [[ -z "${ENGINE_PATH}" ]]; then
-            for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
-              if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
-            done
+          set -euo pipefail
+          git lfs fetch --all
+          git lfs checkout
+
+      - name: Login to container registry (if needed)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${UE_DOCKER_IMAGE:-}" ]]; then
+            echo "UE_DOCKER_IMAGE secret not set" >&2; exit 1
           fi
-          if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
-            echo "Unable to locate Unreal Engine in container. Set secret UE_ENGINE_ROOT or bake engine into image at one of: /opt/UnrealEngine, /opt/unreal-engine, /home/ue4/UnrealEngine, /home/ue/UnrealEngine" >&2
-            exit 1
+          if [[ "${UE_DOCKER_IMAGE}" == ghcr.io/* ]]; then
+            echo "Logging in to GHCR..."
+            echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          elif [[ -n "${DOCKER_USERNAME:-}" && -n "${DOCKER_PASSWORD:-}" ]]; then
+            echo "Logging in to Docker registry with DOCKER_USERNAME..."
+            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+          else
+            echo "No registry login performed (public image or anonymous pull)."
           fi
-          echo "Engine path: ${ENGINE_PATH}"
-          echo "UE_ENGINE_ROOT=${ENGINE_PATH}" >> "$GITHUB_ENV"
-      - name: Build (Game target)
+
+      - name: Pull UE Docker image
         shell: bash
         run: |
-          python build_ue.py --project "${PROJECT}" --engine "${UE_ENGINE_ROOT}" --config Development --platform Linux --game
+          set -euo pipefail
+          docker pull "${UE_DOCKER_IMAGE}"
+
+      - name: Build (Game target) inside Docker
+        shell: bash
+        env:
+          PROJECT: ${{ env.PROJECT }}
+          UE_ENGINE_ROOT: ${{ env.UE_ENGINE_ROOT }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/workspace" -w /workspace \
+            -e PROJECT -e UE_ENGINE_ROOT \
+            "${UE_DOCKER_IMAGE}" bash -lc '
+              set -euo pipefail
+              ENGINE_PATH="${UE_ENGINE_ROOT:-}"
+              if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+                for candidate in /opt/UnrealEngine /opt/unreal-engine /home/ue4/UnrealEngine /home/ue/UnrealEngine; do
+                  if [[ -d "$candidate/Engine" ]]; then ENGINE_PATH="$candidate/Engine"; break; fi
+                  if [[ -d "$candidate" ]]; then ENGINE_PATH="$candidate"; break; fi
+                done
+              fi
+              if [[ -z "${ENGINE_PATH}" || ! -d "${ENGINE_PATH}" ]]; then
+                echo "Unable to locate Unreal Engine in container. Set UE_ENGINE_ROOT or bake engine at a standard path." >&2
+                exit 1
+              fi
+              echo "Engine path: ${ENGINE_PATH}"
+              python build_ue.py --project "${PROJECT}" --engine "${ENGINE_PATH}" --config Development --platform Linux --game
+            '
+
       - name: Upload Game Binaries
         uses: actions/upload-artifact@v4
         with:
