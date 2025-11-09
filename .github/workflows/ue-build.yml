@@ -28,7 +28,7 @@ jobs:
     # Do not run on forked PRs for self-hosted security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     # Requires a self-hosted Windows runner with Unreal Engine + VS installed
-    runs-on: [self-hosted, Windows]
+    runs-on: [self-hosted, Windows, ue5]
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -114,7 +114,7 @@ jobs:
   build-game:
     # Do not run on forked PRs for self-hosted security
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-    runs-on: [self-hosted, Windows]
+    runs-on: [self-hosted, Windows, ue5]
     needs: build-win64
     timeout-minutes: 120
     steps:
