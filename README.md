@@ -4,14 +4,16 @@ UEGitWorkshop is a minimal Unreal Engine 5.6 project set up to demonstrate clean
 
 This README explains the repo layout, prerequisites, how to run/build locally, and how CI is configured.
 
-**Highlights**
+## Highlights
+
 - Clean Git setup for UE projects (ignore rules + LFS)
 - Consistent naming (e.g., maps use `L_` prefix: `L_Main`)
 - Cross-checked source/module/targets naming (`UEGitWorkshop`)
 - One‑shot build script to generate project files and build once
-- GitHub Actions workflow to package the Windows game via self‑hosted Windows runner and attach a zip to a release
+- GitHub Actions workflow for a minimal sanity check on pushes/PRs
 
-**Requirements**
+## Requirements
+
 - Windows 10/11
 - Unreal Engine 5.6 (installed via Epic Games Launcher)
   - Example path: `C:\Program Files\Epic Games\UE_5.6`
@@ -25,7 +27,7 @@ This README explains the repo layout, prerequisites, how to run/build locally, a
 
 Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCache/`, `Saved/`, and `Binaries/` are ignored by Git):
 
-```
+```text
 .
 ├── .clangd
 ├── .editorconfig
@@ -64,21 +66,24 @@ Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCac
 
 ## Local Setup
 
-1) Clone and enable LFS
+1. Clone and enable LFS
+
 - `git clone <your-repo-url>`
 - `cd UEGitWorkshop`
 - `git lfs install`
 
-2) Configure Unreal Engine path
+1. Configure Unreal Engine path
+
 - Option A: Set an environment variable (recommended):
   - `UE_ENGINE_ROOT="C:\\Program Files\\Epic Games\\UE_5.6"`
 - Option B: Pass `--engine` argument to the build script.
 
-3) Ensure Visual Studio 2022 with C++ components is installed.
+1. Ensure Visual Studio 2022 with C++ components is installed.
 
 ## Build & Run
 
 Generate project files and build once via the helper script:
+
 - `python build_ue.py --engine "C:\\Program Files\\Epic Games\\UE_5.6" --config Development --platform Win64`
   - The script tries `UnrealVersionSelector.exe` or falls back to UBT `-ProjectFiles`
   - Builds the Editor target by default; use `--game` to build game target
@@ -88,6 +93,7 @@ Open the project:
 - Open the generated solution in Visual Studio and start the Editor target.
 
 Default maps (configured in `Config/DefaultEngine.ini`):
+
 - `EditorStartupMap=/Game/Maps/L_Main.L_Main`
 - `GameDefaultMap=/Game/Maps/L_Main.L_Main`
 
@@ -95,25 +101,17 @@ If you just renamed maps in the filesystem, open the project and choose “Fix U
 
 ## CI/CD (GitHub Actions)
 
-Workflow file: `.github/workflows/game-build.yml`
-- Trigger: manual only (`workflow_dispatch`).
-- Inputs: `config` (Development or Shipping, default Shipping) and optional `tag`.
-- Runner: self‑hosted Windows with Unreal Engine + Visual Studio installed.
-- Steps:
-  - Checkout (with LFS) and ensure real files.
-  - Validate `UE_ENGINE_ROOT` (engine path) from repo secret.
-  - Package with RunUAT `BuildCookRun` for Win64 using selected `config` and all maps.
-  - Zip packaged output to `WindowsGame.zip` and upload as artifact.
-  - Compute tag (provided or auto‑generated) and create a GitHub Release attaching the zip.
+Workflow file: `.github/workflows/unreal-sanity-check.yml`
 
-Setup required:
-- Self‑hosted Windows runner with labels `[self-hosted, Windows, ue5]`.
-- Unreal Engine 5.6 installed + Visual Studio 2022 C++ workloads.
-- Repository secret `UE_ENGINE_ROOT` pointing to your engine path. Example:
-  - `C:\\Program Files\\Epic Games\\UE_5.6\\Engine`
+What it does:
 
-Manual dispatch:
-- GitHub → Actions → Package Windows Game → Run workflow → choose `config` and optional `tag`.
+- Runs on push, pull_request, and manual dispatch.
+- Restores LFS files, verifies the `.uproject` exists, runs whitespace/EOL checks.
+- Uploads an artifact `sanity-report` with a brief report and logs.
+
+Run it:
+
+- GitHub → Actions → Unreal Sanity Check → Run workflow
 
 ## Naming Conventions
 

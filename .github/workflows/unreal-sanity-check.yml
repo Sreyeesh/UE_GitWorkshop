@@ -68,3 +68,4 @@ jobs:
             ws.txt
             README.md
             Logs.zip
+          if-no-files-found: ignore
