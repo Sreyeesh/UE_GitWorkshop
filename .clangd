@@ -1,0 +1,32 @@
+CompileFlags:
+  Add:
+    - "-I${workspaceFolder}/Source"
+    - "-I${workspaceFolder}/Source/UE_GitWorkshop/Public"
+    # Generated headers (UHT): ensure module include dir is searched
+    - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UE_GitWorkshop"
+    - "-I${workspaceFolder}/Intermediate/Build/Win64/UnrealEditor/Inc/UE_GitWorkshop/UHT"
+    # Engine sources and key runtime module public headers
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source"
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime"
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime/Core/Public"
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime/CoreUObject/Public"
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime/Engine/Public"
+    - "-IC:/Program Files/Epic Games/UE_5.6/Engine/Source/Runtime/Engine/Classes"
+    # Silence export macro for clangd parsing
+    - "-DUE_GITWORKSHOP_API="
+    # Unreal build + editor/Windows defines so Build.h and UE macros parse
+    - "-DUE_BUILD_DEVELOPMENT=1"
+    - "-DUE_EDITOR=1"
+    - "-DWITH_EDITOR=1"
+    - "-DPLATFORM_WINDOWS=1"
+    - "-DWIN64"
+    - "-D_WIN64"
+    - "-DWIN32"
+    - "-D_WIN32"
+    - "-DUNICODE"
+    - "-D_UNICODE"
+    - "-DNOMINMAX"
+
+Diagnostics:
+  # Suppress noisy false-positive include-cleaner warnings in UE projects
+  Suppress: [ unused-includes ]

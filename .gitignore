@@ -4,6 +4,24 @@ DerivedDataCache/
 Intermediate/
 Saved/
 
+# IDE/build system local state
+.vs/
+.idea/
+*.VC.db
+*.VC.opendb
+*.sdf
+*.ipch
+*.user
+*.userprefs
+*.opensdf
+*.suo
+*.tmp
+*.cache
+
+# Local backups and temp files
+*.bak
+~$*
+
 # VS Code: ignore by default, allow specific JSON configs
 .vscode/
 !.vscode/settings.json

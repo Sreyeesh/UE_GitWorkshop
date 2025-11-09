@@ -1,0 +1,117 @@
+name: UE Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Optional tag name to create and release
+        required: false
+
+# If your runner sets UE_ENGINE_ROOT as a machine env var,
+# you can remove the env block or leave it to override via secret.
+env:
+  UE_ENGINE_ROOT: ${{ secrets.UE_ENGINE_ROOT }}
+  PROJECT: UEGitWorkshop.uproject
+
+permissions:
+  contents: write
+
+jobs:
+  build-win64:
+    # Requires a self-hosted Windows runner with Unreal Engine + VS installed
+    runs-on: [self-hosted, windows, ue5]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build (Editor target)
+        shell: cmd
+        run: |
+          echo Python version:
+          python -V
+          echo Building with engine at %UE_ENGINE_ROOT%
+          python build_ue.py --project "%PROJECT%" --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64
+
+      - name: Create archives
+        if: success()
+        shell: pwsh
+        run: |
+          if (Test-Path 'Binaries/Win64') { Compress-Archive -Path 'Binaries/Win64/*' -DestinationPath 'Binaries-Win64.zip' -Force }
+          if (Test-Path 'Saved/Logs')    { Compress-Archive -Path 'Saved/Logs/*'    -DestinationPath 'Logs.zip'            -Force }
+
+      - name: Upload build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Binaries-Win64
+          path: |
+            Binaries/Win64/**
+            Saved/Logs/**
+            Binaries-Win64.zip
+            Logs.zip
+
+      - name: Compute tag
+        id: version
+        if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+        shell: pwsh
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if ($env:INPUT_TAG) { $tag = $env:INPUT_TAG }
+          else { $date = Get-Date -Format 'yyyyMMdd'; $tag = "build-$date-${{ github.run_number }}" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Tag computed: $tag"
+
+      - name: Push git tag
+        if: ${{ steps.version.outputs.tag != '' }}
+        shell: pwsh
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
+          git tag $env:TAG -a -m "Automated build $env:TAG"
+          git push origin $env:TAG
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+
+      - name: Create GitHub Release
+        if: ${{ steps.version.outputs.tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Automated build ${{ steps.version.outputs.tag }}
+          body: |
+            Automated build from commit ${{ github.sha }} on ${{ github.ref }}.
+            Trigger: ${{ github.event_name }} | Runner: ${{ runner.os }}
+          files: |
+            Binaries-Win64.zip
+            Logs.zip
+
+  build-game:
+    runs-on: [self-hosted, windows, ue5]
+    needs: build-win64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build (Game target)
+        shell: cmd
+        run: |
+          python build_ue.py --project "%PROJECT%" --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64 --game
+      - name: Upload Game Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Game-Binaries-Win64
+          path: |
+            Binaries/Win64/**
+            Saved/Logs/**

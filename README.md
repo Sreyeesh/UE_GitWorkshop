@@ -1,4 +1,4 @@
-# UE_GitWorkshop (UE5.6)
+# UEGitWorkshop (UE5.6)
 
 This project is part of the **Git for Unreal Engine Developers Workshop**.  
 It demonstrates how to set up a clean and professional Git repository for Unreal Engine projects, including:

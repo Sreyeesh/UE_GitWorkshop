@@ -1,0 +1,20 @@
+#include "HelloWorldSubsystem.h"
+#include "Engine/Engine.h"
+#include "UEGitWorkshopLog.h"
+
+void UHelloWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+    Super::Initialize(Collection);
+
+    UE_LOG(LogUEGitWorkshop, Display, TEXT("Hello World!"));
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            5.0f,
+            FColor::Green,
+            TEXT("Hello World!")
+        );
+    }
+}
