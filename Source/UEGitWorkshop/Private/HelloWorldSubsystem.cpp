@@ -13,8 +13,8 @@ void UHelloWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
         GEngine->AddOnScreenDebugMessage(
             -1,
             5.0f,
-            FColor::Green,
-            TEXT("Hello World!")
+            FColor::Blue,
+            TEXT("Hello Joni!")
         );
     }
 }
