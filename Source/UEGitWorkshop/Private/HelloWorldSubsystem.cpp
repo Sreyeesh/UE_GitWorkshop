@@ -6,15 +6,22 @@ void UHelloWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
 
-    UE_LOG(LogUEGitWorkshop, Display, TEXT("Hello Joni!"));
-
-    if (GEngine)
+    if (UWorld* World = GetWorld())
     {
-        GEngine->AddOnScreenDebugMessage(
-            -1,
-            5.0f,
-            FColor::Blue,
-            TEXT("Hello Joni!")
-        );
+        if (World->IsGameWorld() && GEngine)
+        {
+            constexpr const TCHAR* HelloText = TEXT("Hello Joni");
+
+            UE_LOG(LogUEGitWorkshop, Display, TEXT("%s"), HelloText);
+
+            // Use a stable key so subsequent runs replace instead of stacking
+            const int32 MessageKey = 1;
+            GEngine->AddOnScreenDebugMessage(
+                MessageKey,
+                5.0f,
+                FColor::Red,
+                HelloText
+            );
+        }
     }
 }
