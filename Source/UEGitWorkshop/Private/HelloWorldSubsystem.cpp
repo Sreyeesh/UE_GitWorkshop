@@ -6,7 +6,7 @@ void UHelloWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
 
-    UE_LOG(LogUEGitWorkshop, Display, TEXT("Hello World!"));
+    UE_LOG(LogUEGitWorkshop, Display, TEXT("Hello Joni!"));
 
     if (GEngine)
     {
