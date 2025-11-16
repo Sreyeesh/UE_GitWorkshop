@@ -2,7 +2,7 @@ name: Unreal Sanity Check
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
   pull_request:
   workflow_dispatch:
 
@@ -58,16 +58,12 @@ jobs:
             echo "Whitespace issues detected (see ws.txt)" | tee -a sanity.txt
           fi
 
-      - name: Naming convention check (non-blocking)
+      - name: Naming convention check
         shell: bash
         run: |
           set -euo pipefail
-          python3 --version || true
-          if python3 scripts/validate_naming.py --content Content --report naming.txt >> sanity.txt 2>&1; then
-            echo "Naming conventions OK" | tee -a sanity.txt
-          else
-            echo "Naming convention issues detected (see naming.txt)" | tee -a sanity.txt
-          fi
+          python3 --version
+          python3 scripts/validate_naming.py --content Content --report naming.txt | tee -a sanity.txt
 
       - name: Upload sanity report
         if: always()
@@ -80,4 +76,5 @@ jobs:
             naming.txt
             README.md
             Logs.zip
+            scripts/validate_naming.py
           if-no-files-found: ignore
