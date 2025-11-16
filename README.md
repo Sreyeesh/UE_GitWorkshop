@@ -29,8 +29,10 @@ Latest workspace snapshot from repo root:
 <!-- TREE_SNAPSHOT_START -->
 ```text
 .
-├── Binaries
-│   └── Win64
+├── .githooks
+│   └── commit-msg
+├── .github
+│   └── workflows
 ├── Config
 │   ├── DefaultEditor.ini
 │   ├── DefaultEngine.ini
@@ -38,49 +40,27 @@ Latest workspace snapshot from repo root:
 │   └── DefaultInput.ini
 ├── Content
 │   ├── Actors
-│   ├── Collections
-│   ├── Developers
 │   ├── Maps
 │   ├── Materials
 │   └── SimBlank
-├── DerivedDataCache
-│   └── VT
-├── Intermediate
-│   ├── Build
-│   ├── PipInstall
-│   ├── ProjectFiles
-│   ├── ReimportCache
-│   ├── ShaderAutogen
-│   ├── CachedAssetRegistry_0.bin
-│   ├── CachedAssetRegistryDiscovery.bin
-│   └── TargetInfo.json
-├── Saved
-│   ├── Autosaves
-│   ├── Collections
-│   ├── Config
-│   ├── Crashes
-│   ├── Logs
-│   ├── ShaderDebugInfo
-│   ├── SourceControl
-│   ├── UnrealBuildTool
-│   └── AutoScreenshot.png
 ├── scripts
 │   ├── update_tree_snapshot.py
 │   └── validate_naming.py
 ├── Source
-│   ├── UE_GitWorkshop
 │   ├── UEGitWorkshop
 │   ├── UEGitWorkshop.Target.cs
 │   └── UEGitWorkshopEditor.Target.cs
+├── .clangd
+├── .editorconfig
+├── .gitattributes
+├── .gitignore
+├── .vsconfig
 ├── build_ue.py
 ├── Makefile
 ├── README.md
-├── UE_GitWorkshop.sln
-├── UE_GitWorkshop.uproject.bak
-├── UEGitWorkshop.sln
 └── UEGitWorkshop.uproject
 
-31 directories, 19 files
+12 directories, 18 files
 ```
 <!-- TREE_SNAPSHOT_END -->
 
