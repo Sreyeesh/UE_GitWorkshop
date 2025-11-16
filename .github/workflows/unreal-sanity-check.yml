@@ -53,9 +53,16 @@ jobs:
         run: |
           set -euo pipefail
           if git diff --check > ws.txt 2>&1; then
-            echo "No whitespace errors" | tee -a sanity.txt
+            echo "No whitespace errors detected" | tee -a sanity.txt
+            echo "Whitespace check passed: git diff --check reported no issues." > ws.txt
           else
             echo "Whitespace issues detected (see ws.txt)" | tee -a sanity.txt
+            {
+              echo "Whitespace check failed: git diff --check output below."
+              echo "-------------------------------------------------------"
+              cat ws.txt
+            } > ws_tmp.txt
+            mv ws_tmp.txt ws.txt
           fi
 
       - name: Naming convention check
