@@ -3,6 +3,9 @@ name: Unreal Sanity Check
 on:
   push:
     branches: [ main, master, dev ]
+    tags:
+      - v*
+      - release/*
   pull_request:
   workflow_dispatch:
 
