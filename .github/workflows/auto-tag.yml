@@ -48,6 +48,12 @@ jobs:
           echo "Next tag: $next"
           echo "next_tag=$next" >> "$GITHUB_OUTPUT"
 
+      - name: Configure git user
+        if: steps.tag_check.outputs.already_tagged == 'false'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Create and push tag
         if: steps.tag_check.outputs.already_tagged == 'false'
         env:
