@@ -3,7 +3,7 @@
 #include "Engine/GameViewportClient.h"
 #include "UEGitWorkshopLog.h"
 #include "Styling/CoreStyle.h"
-#include "Styling/SlateFontInfo.h"
+#include "Fonts/SlateFontInfo.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Layout/SBorder.h"

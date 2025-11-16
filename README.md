@@ -76,8 +76,14 @@ Run `make snapshot` after restructuring files to refresh this section.
 
 1. Configure Unreal Engine path
 
-- Option A: Set an environment variable (recommended):
-  - `UE_ENGINE_ROOT="C:\\Program Files\\Epic Games\\UE_5.6"`
+- Option A: Set an environment variable (recommended). You can either export it for the current shell or place the same line in a `.env` next to the `Makefile` so it loads automatically.
+  - PowerShell: `$env:UE_ENGINE_ROOT = 'C:\\Program Files\\Epic Games\\UE_5.6'`
+  - Command Prompt: `set "UE_ENGINE_ROOT=C:\\Program Files\\Epic Games\\UE_5.6"`
+  - Git Bash: `export UE_ENGINE_ROOT="C:/Program Files/Epic Games/UE_5.6"`
+  - Optional: set `UE_EDITOR` directly to the executable if you prefer.
+    - PowerShell: `$env:UE_EDITOR = 'C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Binaries\\Win64\\UnrealEditor.exe'`
+    - Command Prompt: `set "UE_EDITOR=C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Binaries\\Win64\\UnrealEditor.exe"`
+    - Git Bash: `export UE_EDITOR="C:/Program Files/Epic Games/UE_5.6/Engine/Binaries/Win64/UnrealEditor.exe"`
 - Option B: Pass `--engine` argument to the build script.
 
 1. Ensure Visual Studio 2022 with C++ components is installed.
@@ -90,7 +96,13 @@ Run these once in your clone to align tooling and branches.
   - `git lfs install`
   - `git config core.hooksPath .githooks`
 - Set the Engine path for this session (adjust if you installed UE elsewhere)
+  - PowerShell: `$env:UE_ENGINE_ROOT = 'C:\\Program Files\\Epic Games\\UE_5.6'`
   - Windows CMD: `set "UE_ENGINE_ROOT=C:\\Program Files\\Epic Games\\UE_5.6"`
+  - Git Bash: `export UE_ENGINE_ROOT="C:/Program Files/Epic Games/UE_5.6"`
+- (Optional) Set the editor executable explicitly if you want to bypass auto-detection.
+  - PowerShell: `$env:UE_EDITOR = 'C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Binaries\\Win64\\UnrealEditor.exe'`
+  - Windows CMD: `set "UE_EDITOR=C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Binaries\\Win64\\UnrealEditor.exe"`
+  - Git Bash: `export UE_EDITOR="C:/Program Files/Epic Games/UE_5.6/Engine/Binaries/Win64/UnrealEditor.exe"`
 - Pull latest and create your personal feature branch
   - `git switch main && git pull --rebase`
   - `git switch -c feat/<yourname>-lab1`
@@ -105,6 +117,12 @@ Generate project files and build once via the helper script:
   - The script tries `UnrealVersionSelector.exe` or falls back to UBT `-ProjectFiles`
   - Builds the Editor target by default; use `--game` to build game target
 
+Makefile shortcuts (from repo root):
+
+- `make build` — runs `build_ue.py` with your current environment
+- `make launch` — starts the editor; set `UE_ENGINE_ROOT` (see commands above or add `.env`) so it knows which `UnrealEditor.exe` to run, or pass `UE_EDITOR="C:/.../UnrealEditor.exe"`.
+- `make run` — equivalent to `make build` followed by `make launch`
+
 Open the project:
 - Double‑click `UEGitWorkshop.uproject`, or
 - Open the generated solution in Visual Studio and start the Editor target.
@@ -112,7 +130,7 @@ Open the project:
 Windows Command Prompt equivalents:
 
 - Build once using your env var: `py -3.11 build_ue.py --engine "%UE_ENGINE_ROOT%" --config Development --platform Win64`
-- Launch the Editor: `"%UE_ENGINE_ROOT%\Engine\Binaries\Win64\UnrealEditor.exe" "%CD%\UEGitWorkshop.uproject" -log`
+- Launch the Editor manually: `"%UE_ENGINE_ROOT%\Engine\Binaries\Win64\UnrealEditor.exe" "%CD%\UEGitWorkshop.uproject" -log`
 
 Default maps (configured in `Config/DefaultEngine.ini`):
 
