@@ -81,9 +81,19 @@ jobs:
           set -euo pipefail
           python3 scripts/update_tree_snapshot.py
           if ! git diff --quiet -- README.md; then
-            echo "README tree snapshot is outdated. Run 'make snapshot' locally." | tee -a sanity.txt
-            git diff -- README.md
-            exit 1
+            if [[ "$GITHUB_EVENT_NAME" == "push" && ( "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/master" ) ]]; then
+              branch="${GITHUB_REF#refs/heads/}"
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add README.md
+              git commit -m "docs(snapshot): refresh tree listing"
+              git push origin "HEAD:${branch}"
+              echo "README tree snapshot refreshed automatically on ${branch}." | tee -a sanity.txt
+            else
+              echo "README tree snapshot is outdated. Run 'make snapshot' locally." | tee -a sanity.txt
+              git diff -- README.md
+              exit 1
+            fi
           fi
 
       - name: Upload sanity report
