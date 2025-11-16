@@ -2,7 +2,10 @@ name: Unreal Sanity Check
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
+    tags:
+      - v*
+      - release/*
   pull_request:
   workflow_dispatch:
 
@@ -53,20 +56,34 @@ jobs:
         run: |
           set -euo pipefail
           if git diff --check > ws.txt 2>&1; then
-            echo "No whitespace errors" | tee -a sanity.txt
+            echo "No whitespace errors detected" | tee -a sanity.txt
+            echo "Whitespace check passed: git diff --check reported no issues." > ws.txt
           else
             echo "Whitespace issues detected (see ws.txt)" | tee -a sanity.txt
+            {
+              echo "Whitespace check failed: git diff --check output below."
+              echo "-------------------------------------------------------"
+              cat ws.txt
+            } > ws_tmp.txt
+            mv ws_tmp.txt ws.txt
           fi
 
-      - name: Naming convention check (non-blocking)
+      - name: Naming convention check
         shell: bash
         run: |
           set -euo pipefail
-          python3 --version || true
-          if python3 scripts/validate_naming.py --content Content --report naming.txt >> sanity.txt 2>&1; then
-            echo "Naming conventions OK" | tee -a sanity.txt
-          else
-            echo "Naming convention issues detected (see naming.txt)" | tee -a sanity.txt
+          python3 --version
+          python3 scripts/validate_naming.py --content Content --report naming.txt | tee -a sanity.txt
+
+      - name: Verify README tree snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/update_tree_snapshot.py
+          if ! git diff --quiet -- README.md; then
+            echo "README tree snapshot is outdated. Run 'make snapshot' locally." | tee -a sanity.txt
+            git diff -- README.md
+            exit 1
           fi
 
       - name: Upload sanity report
@@ -80,4 +97,5 @@ jobs:
             naming.txt
             README.md
             Logs.zip
+            scripts/validate_naming.py
           if-no-files-found: ignore

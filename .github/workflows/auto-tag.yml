@@ -1,0 +1,64 @@
+name: Auto Tag Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip if commit already tagged
+        id: tag_check
+        run: |
+          set -euo pipefail
+          if git tag --points-at HEAD | grep -q .; then
+            echo "already_tagged=true" >> "$GITHUB_OUTPUT"
+            echo "Commit already has a tag. Skipping creation." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "already_tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine next version
+        id: version
+        if: steps.tag_check.outputs.already_tagged == 'false'
+        run: |
+          set -euo pipefail
+          git fetch --tags --quiet
+          latest="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          if [ -z "$latest" ]; then
+            next="v1.0.0"
+          else
+            version="${latest#v}"
+            IFS='.' read -r major minor patch <<< "$version"
+            patch=$((patch + 1))
+            next="v${major}.${minor}.${patch}"
+          fi
+          echo "Latest tag: ${latest:-<none>}"
+          echo "Next tag: $next"
+          echo "next_tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.already_tagged == 'false'
+        env:
+          NEXT_TAG: ${{ steps.version.outputs.next_tag }}
+        run: |
+          set -euo pipefail
+          git tag -a "$NEXT_TAG" -m "Automated release for $GITHUB_SHA"
+          git push origin "$NEXT_TAG"
+          {
+            echo "## Created Tag"
+            echo ""
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Tag: $NEXT_TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
