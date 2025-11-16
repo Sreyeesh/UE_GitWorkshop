@@ -25,48 +25,66 @@ This README explains the repo layout, prerequisites, how to run/build locally, a
 
 ## Project Structure
 
-Top‑level, simplified (generated folders like `Intermediate/`, `DerivedDataCache/`, `Saved/`, and `Binaries/` are ignored by Git):
-
+Latest workspace snapshot from repo root:
+<!-- TREE_SNAPSHOT_START -->
 ```text
 .
-├── .clangd
-├── .editorconfig
-├── .vscode/
-│   └── settings.json
-├── .github/
-│   └── workflows/
-│       └── unreal-sanity-check.yml
-├── .githooks/
-│   └── commit-msg
-├── scripts/
+├── Binaries
+│   └── Win64
+├── Config
+│   ├── DefaultEditor.ini
+│   ├── DefaultEngine.ini
+│   ├── DefaultGame.ini
+│   └── DefaultInput.ini
+├── Content
+│   ├── Actors
+│   ├── Collections
+│   ├── Developers
+│   ├── Maps
+│   ├── Materials
+│   └── SimBlank
+├── DerivedDataCache
+│   └── VT
+├── Intermediate
+│   ├── Build
+│   ├── PipInstall
+│   ├── ProjectFiles
+│   ├── ReimportCache
+│   ├── ShaderAutogen
+│   ├── CachedAssetRegistry_0.bin
+│   ├── CachedAssetRegistryDiscovery.bin
+│   └── TargetInfo.json
+├── Saved
+│   ├── Autosaves
+│   ├── Collections
+│   ├── Config
+│   ├── Crashes
+│   ├── Logs
+│   ├── ShaderDebugInfo
+│   ├── SourceControl
+│   ├── UnrealBuildTool
+│   └── AutoScreenshot.png
+├── scripts
+│   ├── update_tree_snapshot.py
 │   └── validate_naming.py
-├── Config/
-│   ├── DefaultEngine.ini        ← Startup/Game map set to L_Main
-│   └── DefaultGame.ini          ← Project metadata
-├── Content/
-│   ├── Maps/
-│   │   └── L_Main.umap          ← Main level (rename done in Editor)
-│   ├── Materials/
-│   └── SimBlank/
-│       ├── Blueprints/
-│       └── Levels/
-├── Source/
-│   ├── UEGitWorkshop/
-│   │   ├── Public/
-│   │   │   ├── GitWorkshopHello.h
-│   │   │   ├── HelloWorldSubsystem.h
-│   │   │   └── UEGitWorkshopLog.h
-│   │   ├── Private/
-│   │   │   ├── GitWorkshopHello.cpp
-│   │   │   ├── HelloWorldSubsystem.cpp
-│   │   │   └── UEGitWorkshopLog.cpp
-│   │   ├── UEGitWorkshop.Build.cs
-│   │   └── UEGitWorkshop.cpp
+├── Source
+│   ├── UE_GitWorkshop
+│   ├── UEGitWorkshop
 │   ├── UEGitWorkshop.Target.cs
 │   └── UEGitWorkshopEditor.Target.cs
-├── UEGitWorkshop.uproject
-└── build_ue.py
+├── build_ue.py
+├── Makefile
+├── README.md
+├── UE_GitWorkshop.sln
+├── UE_GitWorkshop.uproject.bak
+├── UEGitWorkshop.sln
+└── UEGitWorkshop.uproject
+
+31 directories, 19 files
 ```
+<!-- TREE_SNAPSHOT_END -->
+
+Run `make snapshot` after restructuring files to refresh this section.
 
 ## Local Setup
 
