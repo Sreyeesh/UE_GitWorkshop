@@ -192,6 +192,7 @@ Notes:
 - LFS pointer files present after clone: `git lfs fetch --all` then `git lfs checkout` to materialize binaries.
 - Commit rejected by hook: use the Conventional Commit types above, or enable hooks with `git config core.hooksPath .githooks`.
 - Whitespace/EOL errors locally: ensure LF as per `.editorconfig`, run `git diff --check`, re‑save and commit.
+ - Use `git status -sb` regularly to see which branch you are on and whether your working tree is clean.
 
 ## License
 
