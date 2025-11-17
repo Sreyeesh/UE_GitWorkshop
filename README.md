@@ -44,6 +44,7 @@ Latest workspace snapshot from repo root:
 │   ├── Materials
 │   └── SimBlank
 ├── scripts
+│   ├── update_changelog.py
 │   ├── update_tree_snapshot.py
 │   └── validate_naming.py
 ├── Source
@@ -56,11 +57,12 @@ Latest workspace snapshot from repo root:
 ├── .gitignore
 ├── .vsconfig
 ├── build_ue.py
+├── CHANGELOG.md
 ├── Makefile
 ├── README.md
 └── UEGitWorkshop.uproject
 
-12 directories, 18 files
+12 directories, 20 files
 ```
 <!-- TREE_SNAPSHOT_END -->
 
