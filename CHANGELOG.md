@@ -1,6 +1,13 @@
 # Changelog
 
 
+
+## v1.0.2 - 2025-11-17
+
+- docs(changelog): seed v1.0.1 entry from history
+- docs(readme): add git status tip
+- ci(changelog): generate and commit CHANGELOG on auto-tag
+
 ## v1.0.1 - 2025-11-17
 
 - docs(readme): add git status tip
