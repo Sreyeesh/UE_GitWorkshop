@@ -1,6 +1,11 @@
 # Changelog
 
 
+
+## v1.0.3 - 2025-11-17
+
+- docs(readme): refresh tree snapshot for changelog
+
 ## v1.0.1 - 2025-11-17
 
 - docs(readme): add git status tip
