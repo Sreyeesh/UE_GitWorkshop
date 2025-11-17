@@ -47,12 +47,28 @@ jobs:
           echo "Latest tag: ${latest:-<none>}"
           echo "Next tag: $next"
           echo "next_tag=$next" >> "$GITHUB_OUTPUT"
+          echo "prev_tag=$latest" >> "$GITHUB_OUTPUT"
 
       - name: Configure git user
         if: steps.tag_check.outputs.already_tagged == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update changelog
+        if: steps.tag_check.outputs.already_tagged == 'false'
+        env:
+          NEXT_TAG: ${{ steps.version.outputs.next_tag }}
+          PREV_TAG: ${{ steps.version.outputs.prev_tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/update_changelog.py --from-tag "${PREV_TAG}" --to-tag "${NEXT_TAG}"
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md unchanged; skipping commit."
+          else
+            git add CHANGELOG.md
+            git commit -m "chore(changelog): update for ${NEXT_TAG}"
+          fi
 
       - name: Create and push tag
         if: steps.tag_check.outputs.already_tagged == 'false'
